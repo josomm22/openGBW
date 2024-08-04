@@ -150,7 +150,7 @@ void showCalibrationMenu(){
   u8g2.setFont(u8g2_font_7x14B_tf);
   CenterPrintToScreen("Calibration", 0);
   u8g2.setFont(u8g2_font_7x13_tr);
-  CenterPrintToScreen("Place 100g weight", 19);
+  CenterPrintToScreen("Place 20g weight", 19);
   CenterPrintToScreen("on scale and", 35);
   CenterPrintToScreen("press button", 51);
   u8g2.sendBuffer();

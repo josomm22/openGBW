@@ -10,10 +10,10 @@
 #define CUP_WEIGHT 70
 #define CUP_DETECTION_TOLERANCE 5 // 5 grams tolerance above or bellow cup weight to detect it
 
-#define LOADCELL_DOUT_PIN 19
-#define LOADCELL_SCK_PIN 18
+#define LOADCELL_DOUT_PIN 13
+#define LOADCELL_SCK_PIN 14
 
-#define LOADCELL_SCALE_FACTOR 7351
+#define LOADCELL_SCALE_FACTOR 2243.10
 
 #define TARE_MEASURES 20 // use the average of measure for taring
 #define SIGNIFICANT_WEIGHT_CHANGE 5 // 5 grams changes are used to detect a significant change

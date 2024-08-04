@@ -1,0 +1,2 @@
+void otaSetup();
+void otaServerLoop();
