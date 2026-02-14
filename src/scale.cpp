@@ -27,6 +27,8 @@ double cupWeightEmpty = 0; // measured actual cup weight
 unsigned long startedGrindingAt = 0;
 unsigned long finishedGrindingAt = 0;
 bool newOffset = false;
+bool lastTriggerButtonPressed = false;
+bool lastScaleMode = false;
 
 void tareScale() {
   Serial.println("Taring scale");
@@ -52,6 +54,10 @@ void grinderToggle()
 void scaleStatusLoop(void *p) {
   double tenSecAvg;
   for (;;) {
+    bool triggerButtonPressed = digitalRead(GRIND_TRIGGER_BUTTON_PIN) == LOW;
+    bool triggerButtonEdge = triggerButtonPressed && !lastTriggerButtonPressed;
+    lastTriggerButtonPressed = triggerButtonPressed;
+
     // recalibrate scale if new calibration has been set
     double newScaleFactor = calibrateMenu.getValue();
     if (newScaleFactor != scaleFactor) {
@@ -64,6 +70,12 @@ void scaleStatusLoop(void *p) {
     setCupWeight = cupMenu.getValue();
     grindMode = grindModeMenu.getValue();
     scaleMode = scaleModeMenu.getValue();
+
+    if (lastScaleMode && !scaleMode) {
+      grinderActive = false;
+      digitalWrite(GRINDER_ACTIVE_PIN, 0);
+    }
+    lastScaleMode = scaleMode;
     
 
     tenSecAvg = weightHistory.averageSince((int64_t)millis() - 10000);
@@ -74,7 +86,37 @@ void scaleStatusLoop(void *p) {
     }
 
     GrinderState grinderState = DeviceState::getGrinderState();
+    if (scaleMode) {
+      if (grinderState != STATUS_IN_MENU && grinderState != STATUS_IN_SUBMENU) {
+        DeviceState::setGrinderState(STATUS_EMPTY);
+        startedGrindingAt = 0;
+        finishedGrindingAt = 0;
+      }
+
+      bool shouldRunGrinder = triggerButtonPressed && scaleReady;
+      if (shouldRunGrinder != grinderActive) {
+        grinderActive = shouldRunGrinder;
+        digitalWrite(GRINDER_ACTIVE_PIN, grinderActive);
+      }
+
+      if (millis() - lastTareAt > TARE_MIN_INTERVAL && ABS(tenSecAvg) > 0.2 && tenSecAvg < 3 && scaleWeight < 3) {
+        lastTareAt = 0;
+      }
+      delay(50);
+      continue;
+    }
+
     if (grinderState == STATUS_EMPTY) {
+      if (triggerButtonEdge && !scaleMode) {
+        Serial.println("Manual grind trigger button pressed");
+        cupWeightEmpty = weightHistory.averageSince((int64_t)millis() - 500);
+        DeviceState::setGrinderState(STATUS_GRINDING_IN_PROGRESS);
+        newOffset = true;
+        startedGrindingAt = millis();
+        grinderToggle();
+        continue;
+      }
+
       if (millis() - lastTareAt > TARE_MIN_INTERVAL && ABS(tenSecAvg) > 0.2 && tenSecAvg < 3 && scaleWeight < 3) {
         // tare if: not tared recently, more than 0.2 away from 0, less than 3 grams total (also works for negative weight)
         lastTareAt = 0;
@@ -212,6 +254,7 @@ void setupScale() {
 
   pinMode(GRINDER_ACTIVE_PIN, OUTPUT);
   digitalWrite(GRINDER_ACTIVE_PIN, 0);
+  pinMode(GRIND_TRIGGER_BUTTON_PIN, INPUT_PULLUP);
   
   scaleFactor = calibrateMenu.getValue();
   setWeight = closedMenu.getValue();

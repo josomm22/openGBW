@@ -11,7 +11,7 @@
     "SW SPI"
 
 */
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0,35,32);
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 32, 33);
 
 TaskHandle_t DisplayTask;
 
@@ -150,7 +150,7 @@ void showCalibrationMenu(){
   u8g2.setFont(u8g2_font_7x14B_tf);
   CenterPrintToScreen("Calibration", 0);
   u8g2.setFont(u8g2_font_7x13_tr);
-  CenterPrintToScreen("Place 20g weight", 19);
+  CenterPrintToScreen("Place 100g weight", 19);
   CenterPrintToScreen("on scale and", 35);
   CenterPrintToScreen("press button", 51);
   u8g2.sendBuffer();
@@ -258,7 +258,11 @@ void updateDisplay( void * parameter) {
       } else if (grinderState == STATUS_EMPTY) {
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x13_tr);
-        CenterPrintToScreen("Weight:", 0);
+        if (scaleMode) {
+          CenterPrintToScreen("Scale", 0);
+        } else {
+          CenterPrintToScreen("Weight:", 0);
+        }
 
         u8g2.setFont(u8g2_font_7x14B_tf);
         u8g2.setFontPosCenter();
@@ -266,16 +270,18 @@ void updateDisplay( void * parameter) {
         snprintf(buf, sizeof(buf), "%3.1fg", abs(scaleWeight));
         CenterPrintToScreen(buf, 32);
 
-        u8g2.setFont(u8g2_font_7x13_tf);
-        u8g2.setFontPosCenter();
-        u8g2.setCursor(5, 50);
-        snprintf(
-          buf2,
-          sizeof(buf2),
-          "Set: %3.1fg",
-          closedMenu.getValue()
-        );
-        LeftPrintToScreen(buf2, 50);
+        if (!scaleMode) {
+          u8g2.setFont(u8g2_font_7x13_tf);
+          u8g2.setFontPosCenter();
+          u8g2.setCursor(5, 50);
+          snprintf(
+            buf2,
+            sizeof(buf2),
+            "Set: %3.1fg",
+            closedMenu.getValue()
+          );
+          LeftPrintToScreen(buf2, 50);
+        }
 
         
       } else if (grinderState == STATUS_GRINDING_FAILED) {

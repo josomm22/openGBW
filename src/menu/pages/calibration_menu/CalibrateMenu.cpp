@@ -39,7 +39,7 @@ void CalibrateMenu::setValue(double newValue) {
 
 void CalibrateMenu::handleEncoderClick(AiEsp32RotaryEncoder rotaryEncoder) {
     double scaleWeight = kalmanFilter.updateEstimate(loadcell.get_units(5));
-    double newCalibrationValue = value * (scaleWeight / 20);
+    double newCalibrationValue = value * (scaleWeight / 100);
 
     setValue(newCalibrationValue);
     DeviceState::setGrinderState(STATUS_IN_MENU);

@@ -23,13 +23,14 @@
 #define GRINDING_FAILED_WEIGHT_TO_RESET 150 // force on balance need to be measured to reset grinding
 #define SLEEP_AFTER_MS 60 * 1000 // sleep after 60 seconds by default
 
-#define GRINDER_ACTIVE_PIN 23
+#define GRINDER_ACTIVE_PIN 16 //relay pin to activate grinder  
+#define GRIND_TRIGGER_BUTTON_PIN 19
 
 #define TARE_MIN_INTERVAL 10 * 1000 // auto-tare at most once every 10 seconds
 
-#define ROTARY_ENCODER_A_PIN 16
-#define ROTARY_ENCODER_B_PIN 17
-#define ROTARY_ENCODER_BUTTON_PIN 18
+#define ROTARY_ENCODER_A_PIN 2
+#define ROTARY_ENCODER_B_PIN 4
+#define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 #define ROTARY_ENCODER_STEPS 4
 
