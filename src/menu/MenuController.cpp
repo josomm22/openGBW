@@ -3,15 +3,15 @@
 TaskHandle_t MenuTask;
 static AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
 static Preferences controllerPreferences;
-MainMenu& mainMenu = MainMenu::getMainMenu(); // Controls selected setting
-ClosedMenu& closedMenu = ClosedMenu::getClosedMenu(); // Controls setWeight
-OffsetMenu& offsetMenu = OffsetMenu::getOffsetMenu(); // Controls grind weight offset
-CalibrateMenu& calibrateMenu = CalibrateMenu::getCalibrateMenu(); // Controls load cell calibration
-CupMenu& cupMenu = CupMenu::getCupMenu(); // Controls cup weight setting
-GrindModeMenu& grindModeMenu = GrindModeMenu::getGrindModeMenu(); // Controls grind mode
-ResetMenu& resetMenu = ResetMenu::getResetMenu(); // Resets to default settings
-ScaleModeMenu& scaleModeMenu = ScaleModeMenu::getScaleModeMenu(); // Toggles whether grinder runs
-SleepMenu& sleepMenu = SleepMenu::getSleepMenu(); // Handles sleep timeout
+MainMenu &mainMenu = MainMenu::getMainMenu();                     // Controls selected setting
+ClosedMenu &closedMenu = ClosedMenu::getClosedMenu();             // Controls setWeight
+OffsetMenu &offsetMenu = OffsetMenu::getOffsetMenu();             // Controls grind weight offset
+CalibrateMenu &calibrateMenu = CalibrateMenu::getCalibrateMenu(); // Controls load cell calibration
+CupMenu &cupMenu = CupMenu::getCupMenu();                         // Controls cup weight setting
+GrindModeMenu &grindModeMenu = GrindModeMenu::getGrindModeMenu(); // Controls grind mode
+ResetMenu &resetMenu = ResetMenu::getResetMenu();                 // Resets to default settings
+ScaleModeMenu &scaleModeMenu = ScaleModeMenu::getScaleModeMenu(); // Toggles whether grinder runs
+SleepMenu &sleepMenu = SleepMenu::getSleepMenu();                 // Handles sleep timeout
 
 GrinderState grinderState = STATUS_EMPTY;
 unsigned long lastEncoderActionAt = 0;
@@ -19,122 +19,156 @@ int encoderValue = 0;
 // Change this to -1 to reverse encoder direction
 int encoderDir = 1;
 
-void readEncoderISR() {
+void readEncoderISR()
+{
     rotaryEncoder.readEncoder_ISR();
 }
 
-int getEncoderDelta() {
+int getEncoderDelta()
+{
     int newValue = rotaryEncoder.readEncoder();
     int delta = (newValue - encoderValue) * -encoderDir;
     encoderValue = newValue;
     return delta;
 }
 
-
-void rotary_onButtonClick() {
+void rotary_onButtonClick()
+{
     static unsigned long lastTimePressed = 0;
     // ignore multiple press in that time milliseconds
-    if (millis() - lastTimePressed < 500) {
+    if (millis() - lastTimePressed < 500)
+    {
         return;
     }
     lastEncoderActionAt = millis();
 
+    // Reset grinding failed state
+    if (grinderState == STATUS_GRINDING_FAILED)
+    {
+        Serial.println("Resetting grinding failed state via button press");
+        DeviceState::setGrinderState(STATUS_EMPTY);
+        lastTimePressed = millis();
+        return;
+    }
     // Enter menu if currently on homepage
-    if(grinderState == STATUS_EMPTY) {
+    else if (grinderState == STATUS_EMPTY)
+    {
         closedMenu.handleEncoderClick(rotaryEncoder);
     }
     // Select currentMenuItem if in main menu
-    else if(grinderState == STATUS_IN_MENU) {
+    else if (grinderState == STATUS_IN_MENU)
+    {
         mainMenu.handleEncoderClick(rotaryEncoder);
     }
     // handle clicks based on current menu if in submenu
-    else if(grinderState == STATUS_IN_SUBMENU) {
+    else if (grinderState == STATUS_IN_SUBMENU)
+    {
         MenuId activeSubmenu = DeviceState::getActiveMenu();
-        if(activeSubmenu == OFFSET) {
+        if (activeSubmenu == OFFSET)
+        {
             offsetMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == CUP_WEIGHT_MENU) {
+        else if (activeSubmenu == CUP_WEIGHT_MENU)
+        {
             cupMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == CALIBRATE) {
+        else if (activeSubmenu == CALIBRATE)
+        {
             calibrateMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == SCALE_MODE) {
+        else if (activeSubmenu == SCALE_MODE)
+        {
             scaleModeMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == GRINDING_MODE) {
+        else if (activeSubmenu == GRINDING_MODE)
+        {
             grindModeMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == RESET) {
+        else if (activeSubmenu == RESET)
+        {
             // handle this here since resetMenu doesn't have access to all other menus
-            if (resetMenu.getValue()) {
+            if (resetMenu.getValue())
+            {
                 closedMenu.setValue((double)COFFEE_DOSE_WEIGHT);
                 offsetMenu.setValue((double)COFFEE_DOSE_OFFSET);
                 cupMenu.setValue((double)CUP_WEIGHT);
                 scaleModeMenu.setValue(false);
                 grindModeMenu.setValue(false);
                 calibrateMenu.setValue((double)LOADCELL_SCALE_FACTOR);
-                sleepMenu.setValue((long) SLEEP_AFTER_MS);
+                sleepMenu.setValue((long)SLEEP_AFTER_MS);
             }
             resetMenu.setValue(false);
             DeviceState::setGrinderState(STATUS_IN_MENU);
             DeviceState::setActiveMenu(MAIN_MENU);
         }
-        else if (activeSubmenu == SLEEP) {
+        else if (activeSubmenu == SLEEP)
+        {
             sleepMenu.handleEncoderClick(rotaryEncoder);
         }
     }
 }
 
-void rotary_onChange() {
+void rotary_onChange()
+{
     lastEncoderActionAt = millis();
     int encoderDelta = getEncoderDelta();
     // handle encoder change from outside menu
-    if(grinderState == STATUS_EMPTY) {
+    if (grinderState == STATUS_EMPTY)
+    {
         closedMenu.handleEncoderChange(encoderDelta);
     }
     // handle encoder change in main menu
-    else if(grinderState == STATUS_IN_MENU) {
+    else if (grinderState == STATUS_IN_MENU)
+    {
         mainMenu.handleEncoderChange(encoderDelta);
     }
     // handle encoder change in submenus
-    else if(grinderState == STATUS_IN_SUBMENU) {
+    else if (grinderState == STATUS_IN_SUBMENU)
+    {
         MenuId activeSubmenu = DeviceState::getActiveMenu();
         // TODO: move this to classes
-        if(activeSubmenu == OFFSET) { //offset menu
+        if (activeSubmenu == OFFSET)
+        { // offset menu
             offsetMenu.handleEncoderChange(encoderDelta);
         }
         // Toggleable Settings
-        else if(activeSubmenu == SCALE_MODE) {
+        else if (activeSubmenu == SCALE_MODE)
+        {
             scaleModeMenu.handleEncoderChange(encoderDelta);
         }
-        else if (activeSubmenu == GRINDING_MODE) {
+        else if (activeSubmenu == GRINDING_MODE)
+        {
             grindModeMenu.handleEncoderChange(encoderDelta);
         }
-        else if (activeSubmenu == RESET) {
+        else if (activeSubmenu == RESET)
+        {
             resetMenu.handleEncoderChange(encoderDelta);
         }
-        else if (activeSubmenu == SLEEP) {
+        else if (activeSubmenu == SLEEP)
+        {
             sleepMenu.handleEncoderChange(encoderDelta);
         }
     }
 }
 
-
-void rotary_loop(void *p) {
-    for(;;) {
+void rotary_loop(void *p)
+{
+    for (;;)
+    {
         grinderState = DeviceState::getGrinderState();
-        if (rotaryEncoder.encoderChanged()) {
+        if (rotaryEncoder.encoderChanged())
+        {
             rotary_onChange();
         }
-        if (rotaryEncoder.isEncoderButtonClicked()) {
+        if (rotaryEncoder.isEncoderButtonClicked())
+        {
             rotary_onButtonClick();
         }
     }
 }
 
-
-void setupMenu() {
+void setupMenu()
+{
     // 1) setup I/O
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
@@ -143,21 +177,21 @@ void setupMenu() {
     bool circleValues = true;
     rotaryEncoder.setBoundaries(-10000, 10000, circleValues); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
     /*Rotary acceleration introduced 25.2.2021.
-    * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
-    * without accelerateion you need long time to get to that number
-    * Using acceleration, faster you turn, faster will the value raise.
-    * For fine tuning slow down.
-    */
+     * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
+     * without accelerateion you need long time to get to that number
+     * Using acceleration, faster you turn, faster will the value raise.
+     * For fine tuning slow down.
+     */
     rotaryEncoder.setAcceleration(100); // or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
 
     // 2) start loop to catch I/O
     xTaskCreatePinnedToCore(
         rotary_loop, /* Function to implement the task */
         "Menu Loop", /* Name of the task */
-        10000,  /* Stack size in words */
-        NULL,  /* Task input parameter */
-        0,  /* Priority of the task */
-        &MenuTask,  /* Task handle. */
-        1  /* Core where the task should run */
+        10000,       /* Stack size in words */
+        NULL,        /* Task input parameter */
+        0,           /* Priority of the task */
+        &MenuTask,   /* Task handle. */
+        1            /* Core where the task should run */
     );
 }

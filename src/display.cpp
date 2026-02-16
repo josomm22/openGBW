@@ -1,8 +1,7 @@
 #include "display.hpp"
 
-
-/* 
-  U8G2_<controller>_<display>_<memory>_<communication> 
+/*
+  U8G2_<controller>_<display>_<memory>_<communication>
   memory
     "1"	one page
     "2"	two pages
@@ -15,7 +14,8 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 32, 33);
 
 TaskHandle_t DisplayTask;
 
-void CenterPrintToScreen(char const *str, u8g2_uint_t y) {
+void CenterPrintToScreen(char const *str, u8g2_uint_t y)
+{
   u8g2_uint_t width = u8g2.getStrWidth(str);
   u8g2.setCursor(128 / 2 - width / 2, y);
   u8g2.print(str);
@@ -42,28 +42,30 @@ void LeftPrintActiveToScreen(char const *str, u8g2_uint_t y)
 void RightPrintToScreen(char const *str, u8g2_uint_t y)
 {
   u8g2_uint_t width = u8g2.getStrWidth(str);
-  u8g2.setCursor(123-width, y);
+  u8g2.setCursor(123 - width, y);
   u8g2.print(str);
 }
 
-void showMenu() {
-    const char* prevName = mainMenu.getPrevMenuName();
-    const char* selectedName = mainMenu.getSelectedMenuName();
-    const char* nextName = mainMenu.getNextMenuName();
-    char buf[3];
-    u8g2.clearBuffer();
-    u8g2.setFontPosTop();
-    u8g2.setFont(u8g2_font_7x14B_tf);
-    CenterPrintToScreen("Menu", 0);
-    u8g2.setFont(u8g2_font_7x13_tr);
-    LeftPrintToScreen(prevName, 19);
-    LeftPrintActiveToScreen(selectedName, 35);
-    LeftPrintToScreen(nextName, 51);
+void showMenu()
+{
+  const char *prevName = mainMenu.getPrevMenuName();
+  const char *selectedName = mainMenu.getSelectedMenuName();
+  const char *nextName = mainMenu.getNextMenuName();
+  char buf[3];
+  u8g2.clearBuffer();
+  u8g2.setFontPosTop();
+  u8g2.setFont(u8g2_font_7x14B_tf);
+  CenterPrintToScreen("Menu", 0);
+  u8g2.setFont(u8g2_font_7x13_tr);
+  LeftPrintToScreen(prevName, 19);
+  LeftPrintActiveToScreen(selectedName, 35);
+  LeftPrintToScreen(nextName, 51);
 
-    u8g2.sendBuffer();
+  u8g2.sendBuffer();
 }
 
-void showOffsetMenu(){
+void showOffsetMenu()
+{
   char buf[16];
   u8g2.clearBuffer();
   u8g2.setFontPosTop();
@@ -75,14 +77,15 @@ void showOffsetMenu(){
   u8g2.sendBuffer();
 }
 
-void showSleepMenu() {
+void showSleepMenu()
+{
   char buf[16];
   u8g2.clearBuffer();
   u8g2.setFontPosTop();
   u8g2.setFont(u8g2_font_7x14B_tf);
   CenterPrintToScreen("Screen timeout", 0);
   u8g2.setFont(u8g2_font_7x13_tr);
-  int timeoutSeconds = ((int)sleepMenu.getValue())/1000;
+  int timeoutSeconds = ((int)sleepMenu.getValue()) / 1000;
   snprintf(buf, sizeof(buf), "%d seconds", timeoutSeconds);
   CenterPrintToScreen(buf, 28);
   u8g2.sendBuffer();
@@ -96,11 +99,13 @@ void showScaleModeMenu()
   u8g2.setFont(u8g2_font_7x14B_tf);
   CenterPrintToScreen("Set Scale Mode", 0);
   u8g2.setFont(u8g2_font_7x13_tr);
-  if(scaleModeMenu.getValue()){
+  if (scaleModeMenu.getValue())
+  {
     LeftPrintToScreen("GBW", 19);
     LeftPrintActiveToScreen("Scale only", 35);
   }
-  else{
+  else
+  {
     LeftPrintActiveToScreen("GBW", 19);
     LeftPrintToScreen("Scale only", 35);
   }
@@ -144,7 +149,8 @@ void showCupMenu()
   u8g2.sendBuffer();
 }
 
-void showCalibrationMenu(){
+void showCalibrationMenu()
+{
   u8g2.clearBuffer();
   u8g2.setFontPosTop();
   u8g2.setFont(u8g2_font_7x14B_tf);
@@ -179,42 +185,53 @@ void showResetMenu()
 }
 
 // Show the active setting submenu
-void showSetting(){
-  
+void showSetting()
+{
+
   MenuId activeMenu = DeviceState::getActiveMenu();
 
-  if(activeMenu == OFFSET) {
+  if (activeMenu == OFFSET)
+  {
     showOffsetMenu();
   }
-  else if(activeMenu == CUP_WEIGHT_MENU) {
+  else if (activeMenu == CUP_WEIGHT_MENU)
+  {
     showCupMenu();
   }
-  else if (activeMenu == CALIBRATE) {
+  else if (activeMenu == CALIBRATE)
+  {
     showCalibrationMenu();
   }
-  else if (activeMenu == SCALE_MODE) {
+  else if (activeMenu == SCALE_MODE)
+  {
     showScaleModeMenu();
   }
-  else if (activeMenu == GRINDING_MODE) {
+  else if (activeMenu == GRINDING_MODE)
+  {
     showGrindModeMenu();
   }
-  else if (activeMenu == RESET) {
+  else if (activeMenu == RESET)
+  {
     showResetMenu();
   }
-  else if (activeMenu == SLEEP) {
+  else if (activeMenu == SLEEP)
+  {
     showSleepMenu();
   }
 }
 
-void updateDisplay( void * parameter) {
+void updateDisplay(void *parameter)
+{
   char buf[64];
   char buf2[64];
 
-  for(;;) {
+  for (;;)
+  {
     u8g2.clearBuffer();
     // Set screen to sleep if timeout is reached. Wake on scale change or encoder action.
     long sleepTimeout = sleepMenu.getValue();
-    if ((millis() - lastSignificantWeightChangeAt > sleepTimeout) && (millis() - lastEncoderActionAt > sleepTimeout)) {
+    if ((millis() - lastSignificantWeightChangeAt > sleepTimeout) && (millis() - lastEncoderActionAt > sleepTimeout))
+    {
       u8g2.sendBuffer();
       delay(100);
       continue;
@@ -222,18 +239,23 @@ void updateDisplay( void * parameter) {
 
     GrinderState grinderState = DeviceState::getGrinderState();
 
-    if (scaleLastUpdatedAt == 0) {
+    if (scaleLastUpdatedAt == 0)
+    {
       u8g2.setFontPosTop();
       u8g2.drawStr(0, 20, "Initializing...");
-    } else if (!scaleReady) {
+    }
+    else if (!scaleReady)
+    {
       u8g2.setFontPosTop();
       u8g2.drawStr(0, 20, "SCALE ERROR");
-    } else {
-      if (grinderState == STATUS_GRINDING_IN_PROGRESS) {
+    }
+    else
+    {
+      if (grinderState == STATUS_GRINDING_IN_PROGRESS)
+      {
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x13_tr);
         CenterPrintToScreen("Grinding...", 0);
-
 
         u8g2.setFontPosCenter();
         u8g2.setFont(u8g2_font_7x14B_tf);
@@ -255,12 +277,17 @@ void updateDisplay( void * parameter) {
         u8g2.setFont(u8g2_font_7x13_tr);
         snprintf(buf, sizeof(buf), "%3.1fs", startedGrindingAt > 0 ? (double)(millis() - startedGrindingAt) / 1000 : 0);
         CenterPrintToScreen(buf, 64);
-      } else if (grinderState == STATUS_EMPTY) {
+      }
+      else if (grinderState == STATUS_EMPTY)
+      {
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x13_tr);
-        if (scaleMode) {
+        if (scaleMode)
+        {
           CenterPrintToScreen("Scale", 0);
-        } else {
+        }
+        else
+        {
           CenterPrintToScreen("Weight:", 0);
         }
 
@@ -270,21 +297,21 @@ void updateDisplay( void * parameter) {
         snprintf(buf, sizeof(buf), "%3.1fg", abs(scaleWeight));
         CenterPrintToScreen(buf, 32);
 
-        if (!scaleMode) {
+        if (!scaleMode)
+        {
           u8g2.setFont(u8g2_font_7x13_tf);
           u8g2.setFontPosCenter();
           u8g2.setCursor(5, 50);
           snprintf(
-            buf2,
-            sizeof(buf2),
-            "Set: %3.1fg",
-            closedMenu.getValue()
-          );
+              buf2,
+              sizeof(buf2),
+              "Set: %3.1fg",
+              closedMenu.getValue());
           LeftPrintToScreen(buf2, 50);
         }
-
-        
-      } else if (grinderState == STATUS_GRINDING_FAILED) {
+      }
+      else if (grinderState == STATUS_GRINDING_FAILED)
+      {
 
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x14B_tf);
@@ -292,9 +319,11 @@ void updateDisplay( void * parameter) {
 
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x13_tr);
-        CenterPrintToScreen("Press the balance", 32);
+        CenterPrintToScreen("Press button", 32);
         CenterPrintToScreen("to reset", 42);
-      } else if (grinderState == STATUS_GRINDING_FINISHED) {
+      }
+      else if (grinderState == STATUS_GRINDING_FINISHED)
+      {
 
         u8g2.setFontPosTop();
         u8g2.setFont(u8g2_font_7x13_tr);
@@ -337,7 +366,8 @@ void updateDisplay( void * parameter) {
   }
 }
 
-void setupDisplay() {
+void setupDisplay()
+{
   u8g2.begin();
   u8g2.setFont(u8g2_font_7x13_tr);
   u8g2.setFontPosTop();
@@ -345,10 +375,10 @@ void setupDisplay() {
 
   xTaskCreatePinnedToCore(
       updateDisplay, /* Function to implement the task */
-      "Display", /* Name of the task */
-      10000,  /* Stack size in words */
-      NULL,  /* Task input parameter */
-      0,  /* Priority of the task */
+      "Display",     /* Name of the task */
+      10000,         /* Stack size in words */
+      NULL,          /* Task input parameter */
+      0,             /* Priority of the task */
       &DisplayTask,  /* Task handle. */
-      1); /* Core where the task should run */
+      1);            /* Core where the task should run */
 }
