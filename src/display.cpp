@@ -134,21 +134,6 @@ void showGrindModeMenu()
   u8g2.sendBuffer();
 }
 
-void showCupMenu()
-{
-  char buf[16];
-  u8g2.clearBuffer();
-  u8g2.setFontPosTop();
-  u8g2.setFont(u8g2_font_7x14B_tf);
-  CenterPrintToScreen("Cup Weight", 0);
-  u8g2.setFont(u8g2_font_7x13_tr);
-  snprintf(buf, sizeof(buf), "%3.1fg", scaleWeight);
-  CenterPrintToScreen(buf, 19);
-  LeftPrintToScreen("Place cup on scale", 35);
-  LeftPrintToScreen("and press button", 51);
-  u8g2.sendBuffer();
-}
-
 void showCalibrationMenu()
 {
   u8g2.clearBuffer();
@@ -184,6 +169,18 @@ void showResetMenu()
   u8g2.sendBuffer();
 }
 
+void showPurgeMenu()
+{
+  u8g2.clearBuffer();
+  u8g2.setFontPosTop();
+  u8g2.setFont(u8g2_font_7x14B_tf);
+  CenterPrintToScreen("Purge Mode", 0);
+  u8g2.setFont(u8g2_font_7x13_tr);
+  CenterPrintToScreen("Press grind", 19);
+  CenterPrintToScreen("button to purge", 35);
+  u8g2.sendBuffer();
+}
+
 // Show the active setting submenu
 void showSetting()
 {
@@ -193,10 +190,6 @@ void showSetting()
   if (activeMenu == OFFSET)
   {
     showOffsetMenu();
-  }
-  else if (activeMenu == CUP_WEIGHT_MENU)
-  {
-    showCupMenu();
   }
   else if (activeMenu == CALIBRATE)
   {
@@ -217,6 +210,10 @@ void showSetting()
   else if (activeMenu == SLEEP)
   {
     showSleepMenu();
+  }
+  else if (activeMenu == PURGE)
+  {
+    showPurgeMenu();
   }
 }
 
@@ -260,7 +257,7 @@ void updateDisplay(void *parameter)
         u8g2.setFontPosCenter();
         u8g2.setFont(u8g2_font_7x14B_tf);
         u8g2.setCursor(3, 32);
-        snprintf(buf, sizeof(buf), "%3.1fg", scaleWeight - cupWeightEmpty);
+        snprintf(buf, sizeof(buf), "%3.1fg", scaleWeight);
         u8g2.print(buf);
 
         u8g2.setFontPosCenter();
@@ -333,7 +330,7 @@ void updateDisplay(void *parameter)
         u8g2.setFontPosCenter();
         u8g2.setFont(u8g2_font_7x14B_tf);
         u8g2.setCursor(3, 32);
-        snprintf(buf, sizeof(buf), "%3.1fg", scaleWeight - cupWeightEmpty);
+        snprintf(buf, sizeof(buf), "%3.1fg", scaleWeight);
         u8g2.print(buf);
 
         u8g2.setFontPosCenter();

@@ -1,48 +1,50 @@
 #include "MainMenu.hpp"
-#include <vector> 
+#include <vector>
 
 std::vector<int> mainMenuOptions = {
-    EXIT, CALIBRATE, CUP_WEIGHT_MENU, OFFSET, SCALE_MODE, GRINDING_MODE, SLEEP, RESET
-};
+    EXIT, CALIBRATE, OFFSET, SCALE_MODE, GRINDING_MODE, SLEEP, PURGE, RESET};
 
 // TODO: find a better solution for this that stays in sync with the options above
-std::vector<const char*> mainMenuNames = {
-    "Exit", "Calibrate Scale", "Set Cup Weight", "Set Offset", "Set Scale Mode", "Set Grind Mode", "Set Sleep Timeout", "Reset Settings"
-};
+std::vector<const char *> mainMenuNames = {
+    "Exit", "Calibrate Scale", "Set Offset", "Set Scale Mode", "Set Grind Mode", "Set Sleep Timeout", "Purge", "Reset Settings"};
 
 int menuItemsCount = mainMenuOptions.size();
 
-MainMenu::MainMenu(){
-    this -> value = EXIT;
-    this -> name = "Main Menu";
-    this -> menuId = MAIN_MENU;
+MainMenu::MainMenu()
+{
+    this->value = EXIT;
+    this->name = "Main Menu";
+    this->menuId = MAIN_MENU;
 };
 
 MainMenu MainMenu::instance = MainMenu();
 
-MainMenu& MainMenu::getMainMenu() {
+MainMenu &MainMenu::getMainMenu()
+{
     return instance;
 }
 
-const char* MainMenu::getSelectedMenuName() {
+const char *MainMenu::getSelectedMenuName()
+{
     return mainMenuNames.at(menuIndex);
 }
 
-const char* MainMenu::getNextMenuName() {
+const char *MainMenu::getNextMenuName()
+{
     int nextIndex = (menuIndex + 1) % menuItemsCount;
     return mainMenuNames.at(nextIndex);
 }
 
-const char* MainMenu::getPrevMenuName() {
+const char *MainMenu::getPrevMenuName()
+{
     int prevIndex = (menuIndex - 1) % menuItemsCount;
     prevIndex = prevIndex < 0 ? prevIndex + menuItemsCount : prevIndex;
     return mainMenuNames.at(prevIndex);
 }
 
-
-
 // implementation for displayMenu and increment
-void MainMenu::displayMenu(U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2) {
+void MainMenu::displayMenu(U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2)
+{
     // int prevIndex = (menuIndex - 1) % menuItemsCount;
     // int nextIndex = (menuIndex + 1) % menuItemsCount;
 
@@ -61,10 +63,10 @@ void MainMenu::displayMenu(U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2) {
     // LeftPrintToScreen(next.menuName, 51);
 
     // u8g2.sendBuffer();
-    
 }
 
-void MainMenu::handleEncoderChange(int encoderDelta) {
+void MainMenu::handleEncoderChange(int encoderDelta)
+{
     // prevent array out of bounds
     menuIndex = (menuIndex + encoderDelta) % menuItemsCount;
     // loop menu
@@ -72,23 +74,20 @@ void MainMenu::handleEncoderChange(int encoderDelta) {
     value = static_cast<MenuId>(mainMenuOptions.at(menuIndex));
 }
 
-void MainMenu::handleEncoderClick(AiEsp32RotaryEncoder rotaryEncoder) {
-    if(value == EXIT){
+void MainMenu::handleEncoderClick(AiEsp32RotaryEncoder rotaryEncoder)
+{
+    if (value == EXIT)
+    {
         DeviceState::setActiveMenu(NONE);
         DeviceState::setGrinderState(STATUS_EMPTY);
         rotaryEncoder.setAcceleration(100);
         Serial.println("Exited Menu");
     }
-    else if (value == OFFSET){
+    else if (value == OFFSET)
+    {
         DeviceState::setActiveMenu(OFFSET);
         DeviceState::setGrinderState(STATUS_IN_SUBMENU);
         Serial.println("Offset Menu");
-    }
-    else if (value == CUP_WEIGHT_MENU)
-    {
-        DeviceState::setActiveMenu(CUP_WEIGHT_MENU);
-        DeviceState::setGrinderState(STATUS_IN_SUBMENU);
-        Serial.println("Cup Menu");
     }
     else if (value == CALIBRATE)
     {
@@ -119,5 +118,11 @@ void MainMenu::handleEncoderClick(AiEsp32RotaryEncoder rotaryEncoder) {
         DeviceState::setActiveMenu(SLEEP);
         DeviceState::setGrinderState(STATUS_IN_SUBMENU);
         Serial.println("Sleep Timeout Menu");
+    }
+    else if (value == PURGE)
+    {
+        DeviceState::setActiveMenu(PURGE);
+        DeviceState::setGrinderState(STATUS_IN_SUBMENU);
+        Serial.println("Purge Menu");
     }
 }

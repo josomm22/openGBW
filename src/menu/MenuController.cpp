@@ -7,11 +7,11 @@ MainMenu &mainMenu = MainMenu::getMainMenu();                     // Controls se
 ClosedMenu &closedMenu = ClosedMenu::getClosedMenu();             // Controls setWeight
 OffsetMenu &offsetMenu = OffsetMenu::getOffsetMenu();             // Controls grind weight offset
 CalibrateMenu &calibrateMenu = CalibrateMenu::getCalibrateMenu(); // Controls load cell calibration
-CupMenu &cupMenu = CupMenu::getCupMenu();                         // Controls cup weight setting
 GrindModeMenu &grindModeMenu = GrindModeMenu::getGrindModeMenu(); // Controls grind mode
 ResetMenu &resetMenu = ResetMenu::getResetMenu();                 // Resets to default settings
 ScaleModeMenu &scaleModeMenu = ScaleModeMenu::getScaleModeMenu(); // Toggles whether grinder runs
 SleepMenu &sleepMenu = SleepMenu::getSleepMenu();                 // Handles sleep timeout
+PurgeMenu &purgeMenu = PurgeMenu::getPurgeMenu();                 // Handles purging the grinder
 
 GrinderState grinderState = STATUS_EMPTY;
 unsigned long lastEncoderActionAt = 0;
@@ -68,10 +68,6 @@ void rotary_onButtonClick()
         {
             offsetMenu.handleEncoderClick(rotaryEncoder);
         }
-        else if (activeSubmenu == CUP_WEIGHT_MENU)
-        {
-            cupMenu.handleEncoderClick(rotaryEncoder);
-        }
         else if (activeSubmenu == CALIBRATE)
         {
             calibrateMenu.handleEncoderClick(rotaryEncoder);
@@ -91,7 +87,6 @@ void rotary_onButtonClick()
             {
                 closedMenu.setValue((double)COFFEE_DOSE_WEIGHT);
                 offsetMenu.setValue((double)COFFEE_DOSE_OFFSET);
-                cupMenu.setValue((double)CUP_WEIGHT);
                 scaleModeMenu.setValue(false);
                 grindModeMenu.setValue(false);
                 calibrateMenu.setValue((double)LOADCELL_SCALE_FACTOR);
@@ -104,6 +99,10 @@ void rotary_onButtonClick()
         else if (activeSubmenu == SLEEP)
         {
             sleepMenu.handleEncoderClick(rotaryEncoder);
+        }
+        else if (activeSubmenu == PURGE)
+        {
+            purgeMenu.handleEncoderClick(rotaryEncoder);
         }
     }
 }
@@ -147,6 +146,10 @@ void rotary_onChange()
         else if (activeSubmenu == SLEEP)
         {
             sleepMenu.handleEncoderChange(encoderDelta);
+        }
+        else if (activeSubmenu == PURGE)
+        {
+            purgeMenu.handleEncoderChange(encoderDelta);
         }
     }
 }

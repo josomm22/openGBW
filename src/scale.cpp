@@ -10,7 +10,6 @@ TaskHandle_t ScaleTask;
 TaskHandle_t ScaleStatusTask;
 
 double setWeight = 0;     // desired amount of coffee
-double setCupWeight = 0;  // cup weight set by user
 double offset = 0;        // stop x grams prior to set weight
 double scaleFactor = 1.0; // load cell multiplier to make 100g read as 100g.
 bool grindMode = false;   // false for impulse to start/stop grinding, true for continuous on while grinding
@@ -23,7 +22,6 @@ unsigned long scaleLastUpdatedAt = 0;
 unsigned long lastSignificantWeightChangeAt = 0;
 unsigned long lastTareAt = 0; // if 0, should tare load cell, else represent when it was last tared
 bool scaleReady = false;
-double cupWeightEmpty = 0; // measured actual cup weight
 unsigned long startedGrindingAt = 0;
 unsigned long finishedGrindingAt = 0;
 bool newOffset = false;
@@ -78,7 +76,6 @@ void scaleStatusLoop(void *p)
     // Update settings
     setWeight = closedMenu.getValue();
     offset = offsetMenu.getValue();
-    setCupWeight = cupMenu.getValue();
     grindMode = grindModeMenu.getValue();
     scaleMode = scaleModeMenu.getValue();
 
@@ -122,12 +119,28 @@ void scaleStatusLoop(void *p)
       continue;
     }
 
+    // Handle purge mode
+    if (grinderState == STATUS_IN_SUBMENU && DeviceState::getActiveMenu() == PURGE)
+    {
+      if (triggerButtonEdge)
+      {
+        Serial.println("Purge button pressed - running grinder for 3 seconds");
+        digitalWrite(GRINDER_ACTIVE_PIN, 1);
+        delay(3000);
+        digitalWrite(GRINDER_ACTIVE_PIN, 0);
+        Serial.println("Purge complete - returning to main screen");
+        DeviceState::setActiveMenu(NONE);
+        DeviceState::setGrinderState(STATUS_EMPTY);
+      }
+      delay(50);
+      continue;
+    }
+
     if (grinderState == STATUS_EMPTY)
     {
       if (triggerButtonEdge && !scaleMode)
       {
         Serial.println("Manual grind trigger button pressed");
-        cupWeightEmpty = weightHistory.averageSince((int64_t)millis() - 500);
         DeviceState::setGrinderState(STATUS_GRINDING_IN_PROGRESS);
         newOffset = true;
         startedGrindingAt = millis();
@@ -140,25 +153,6 @@ void scaleStatusLoop(void *p)
         // tare if: not tared recently, more than 0.2 away from 0, less than 3 grams total (also works for negative weight)
         lastTareAt = 0;
       }
-
-      // Start grinding if both min and max weight detected in the past 1s are less than cup weight + detection tolerance.
-      if (ABS(weightHistory.minSince((int64_t)millis() - 1000) - setCupWeight) < CUP_DETECTION_TOLERANCE &&
-          ABS(weightHistory.maxSince((int64_t)millis() - 1000) - setCupWeight) < CUP_DETECTION_TOLERANCE)
-      {
-        // using average over last 500ms as empty cup weight
-        Serial.println("Starting grinding");
-        cupWeightEmpty = weightHistory.averageSince((int64_t)millis() - 500);
-        DeviceState::setGrinderState(STATUS_GRINDING_IN_PROGRESS);
-
-        if (!scaleMode)
-        {
-          newOffset = true;
-          startedGrindingAt = millis();
-        }
-
-        grinderToggle();
-        continue;
-      }
     }
     else if (grinderState == STATUS_GRINDING_IN_PROGRESS)
     {
@@ -168,7 +162,7 @@ void scaleStatusLoop(void *p)
         grinderToggle();
         DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
       }
-      if (scaleMode && startedGrindingAt == 0 && scaleWeight - cupWeightEmpty >= 0.1)
+      if (scaleMode && startedGrindingAt == 0 && scaleWeight >= 0.1)
       {
         Serial.printf("Started grinding at: %d\n", millis());
         startedGrindingAt = millis();
@@ -196,20 +190,12 @@ void scaleStatusLoop(void *p)
         continue;
       }
 
-      if (weightHistory.minSince((int64_t)millis() - 200) < cupWeightEmpty - CUP_DETECTION_TOLERANCE && !scaleMode)
-      {
-        Serial.printf("Failed because weight too low, min: %f, min value: %f\n", weightHistory.minSince((int64_t)millis() - 200), CUP_WEIGHT + CUP_DETECTION_TOLERANCE);
-
-        grinderToggle();
-        DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
-        continue;
-      }
       double currentOffset = offset;
       if (scaleMode)
       {
         currentOffset = 0;
       }
-      if (weightHistory.maxSince((int64_t)millis() - 200) >= cupWeightEmpty + setWeight + currentOffset)
+      if (weightHistory.maxSince((int64_t)millis() - 200) >= setWeight + currentOffset)
       {
         Serial.println("Finished grinding");
         finishedGrindingAt = millis();
@@ -230,10 +216,10 @@ void scaleStatusLoop(void *p)
         continue;
       }
       // Update grind weight offset if necessary
-      else if (currentWeight != setWeight + cupWeightEmpty && millis() - finishedGrindingAt > 1500 && newOffset)
+      else if (currentWeight != setWeight && millis() - finishedGrindingAt > 1500 && newOffset)
       {
         // TODO: move this to an offsetMenu function. Something like updateOffsetAfterGrind()
-        offset = offset + setWeight + cupWeightEmpty - currentWeight;
+        offset = offset + setWeight - currentWeight;
         if (ABS(offset) >= setWeight)
         {
           offset = COFFEE_DOSE_OFFSET;
@@ -310,7 +296,6 @@ void setupScale()
   scaleFactor = calibrateMenu.getValue();
   setWeight = closedMenu.getValue();
   offset = offsetMenu.getValue();
-  setCupWeight = cupMenu.getValue();
   scaleMode = scaleModeMenu.getValue();
   grindMode = grindModeMenu.getValue();
 
