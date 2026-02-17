@@ -141,6 +141,8 @@ void scaleStatusLoop(void *p)
       if (triggerButtonEdge && !scaleMode)
       {
         Serial.println("Manual grind trigger button pressed");
+        Serial.println("Taring scale before grinding");
+        tareScale();
         DeviceState::setGrinderState(STATUS_GRINDING_IN_PROGRESS);
         newOffset = true;
         startedGrindingAt = millis();
@@ -156,11 +158,13 @@ void scaleStatusLoop(void *p)
     }
     else if (grinderState == STATUS_GRINDING_IN_PROGRESS)
     {
-      if (!scaleReady)
+      // Only check scale readiness after a grace period (1 second) to allow for initialization
+      if (!scaleReady && millis() - startedGrindingAt > 1000)
       {
-
+        Serial.println("Failed because scale is not ready");
         grinderToggle();
         DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
+        continue;
       }
       if (scaleMode && startedGrindingAt == 0 && scaleWeight >= 0.1)
       {
@@ -279,6 +283,11 @@ void updateScale(void *parameter)
     {
       Serial.println("HX711 not found.");
       scaleReady = false;
+      // Set scaleLastUpdatedAt to allow display to show error instead of "Initializing..."
+      if (scaleLastUpdatedAt == 0)
+      {
+        scaleLastUpdatedAt = millis();
+      }
     }
     delay(10);
   }
