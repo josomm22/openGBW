@@ -1,3 +1,4 @@
+#pragma once
 
 // Enum for device states
 enum GrinderState

@@ -10,11 +10,11 @@
 #define LOADCELL_DOUT_PIN 13
 #define LOADCELL_SCK_PIN 14
 
-#define LOADCELL_SCALE_FACTOR 2236.58
+#define LOADCELL_SCALE_FACTOR 2223.24
 
-#define TARE_MEASURES 20            // use the average of measure for taring
+#define TARE_MEASURES 5             // use the average of measure for taring (5 × ~100ms = ~500ms, avoids long HX711 monopoly)
 #define SIGNIFICANT_WEIGHT_CHANGE 5 // 5 grams changes are used to detect a significant change
-#define COFFEE_DOSE_WEIGHT 18
+#define COFFEE_DOSE_WEIGHT 21
 #define COFFEE_DOSE_OFFSET -2.5
 #define MAX_GRINDING_TIME 20000             // 20 seconds diff
 #define GRINDING_FAILED_WEIGHT_TO_RESET 150 // force on balance need to be measured to reset grinding

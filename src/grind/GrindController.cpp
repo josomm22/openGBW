@@ -36,7 +36,8 @@ GrinderState GrindController::update(
             Serial.println("Manual grind trigger button pressed");
             Serial.println("Taring scale before grinding");
             tareFn();
-            startedGrindingAt = now;
+            delay(800);                   // yield so updateScale task can run the tare (5 measures ~500ms) before starting
+            startedGrindingAt = millis(); // re-sample after delay so timers are accurate
             finishedGrindingAt = 0;
             newOffset = true;
             grinderToggleFn();
@@ -48,15 +49,7 @@ GrinderState GrindController::update(
     // ── STATUS_GRINDING_IN_PROGRESS ───────────────────────────────────────
     if (currentState == STATUS_GRINDING_IN_PROGRESS)
     {
-        // 1. Scale not responding after grace period
-        if (!scaleReady && now - startedGrindingAt > 1000)
-        {
-            Serial.println("Failed because scale is not ready");
-            grinderToggleFn();
-            return STATUS_GRINDING_FAILED;
-        }
-
-        // 2. Hard time-out
+        // 1. Hard time-out
         if (!scaleMode && now - startedGrindingAt > MAX_GRINDING_TIME)
         {
             Serial.println("Failed because grinding took too long");
@@ -64,10 +57,12 @@ GrinderState GrindController::update(
             return STATUS_GRINDING_FAILED;
         }
 
-        // 3. Stall detection: less than 1 g change over the last 2 s
+        // 3. Stall detection: less than 1 g change over the last 4 s
+        //    4 s gives slow or spooling-up grinders time to deliver the first gram.
+        //    ABS guards against a slightly-negative post-tare baseline tripping the check.
         if (!scaleMode &&
-            now - startedGrindingAt > 2000 &&
-            scaleWeight - weightHistory.firstValueOlderThan((int64_t)now - 2000) < 1)
+            now - startedGrindingAt > 4000 &&
+            ABS(scaleWeight - weightHistory.firstValueOlderThan((int64_t)now - 4000)) < 1)
         {
             Serial.println("Failed because no change in weight was detected");
             grinderToggleFn();

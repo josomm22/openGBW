@@ -33,7 +33,7 @@ GrindController controller(
     []()
     { grinderToggle(); },
     []()
-    { tareScale(); },
+    { lastTareAt = 0; }, // request tare from updateScale task to avoid blocking HX711
     [](double newOff)
     { offsetMenu.setValue(newOff); });
 
@@ -50,20 +50,12 @@ void tareScale()
 
 void grinderToggle()
 {
-  if (!scaleMode)
-  {
-    if (grindMode)
-    {
-      grinderActive = !grinderActive;
-      digitalWrite(GRINDER_ACTIVE_PIN, grinderActive);
-    }
-    else
-    {
-      digitalWrite(GRINDER_ACTIVE_PIN, 1);
-      delay(100);
-      digitalWrite(GRINDER_ACTIVE_PIN, 0);
-    }
-  }
+  // grinderToggle is only called from GrindController (GBW mode).
+  // The relay must be held closed while grinding so the state machine can
+  // stop it at the right weight. Toggle grinderActive on each call:
+  // 1st call = start (relay ON), 2nd call = stop (relay OFF).
+  grinderActive = !grinderActive;
+  digitalWrite(GRINDER_ACTIVE_PIN, grinderActive);
 }
 
 void scaleStatusLoop(void *p)
