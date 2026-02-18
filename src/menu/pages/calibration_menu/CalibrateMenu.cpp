@@ -2,10 +2,9 @@
 
 CalibrateMenu::CalibrateMenu()
 {
-    menuPreferences.begin("scale", false);
-    double initialValue = menuPreferences.getDouble("calibration", (double)LOADCELL_SCALE_FACTOR);
-    menuPreferences.end();
-    this->value = initialValue;
+    // NVS is not yet mounted at static-init time. loadAllMenuSettings() in
+    // setup() will load the persisted value before hardware initialisation.
+    this->value = (double)LOADCELL_SCALE_FACTOR;
     this->name = "Calibrate Menu";
     this->menuId = CALIBRATE;
 };
@@ -34,17 +33,31 @@ void CalibrateMenu::handleEncoderChange(int encoderDelta)
 void CalibrateMenu::setValue(double newValue)
 {
     this->value = newValue;
-    menuPreferences.begin("scale", false);
-    menuPreferences.putDouble("calibration", newValue);
-    Serial.print("New scale factor set to: ");
-    Serial.println(newValue);
-    menuPreferences.end();
+    bool ok = menuPreferences.begin("scale", false);
+    if (ok)
+    {
+        bool written = menuPreferences.putDouble("calibration", newValue);
+        menuPreferences.end();
+        Serial.printf("CalibrateMenu: saved scale factor %.4f (written=%d)\n", newValue, written);
+    }
+    else
+    {
+        Serial.printf("CalibrateMenu: NVS begin() failed, scale factor %.4f NOT saved\n", newValue);
+    }
 }
 
 void CalibrateMenu::handleEncoderClick(AiEsp32RotaryEncoder rotaryEncoder)
 {
     // Use the global scaleWeight maintained by updateScale — avoids concurrent
     // HX711 access and Kalman filter state corruption from this task.
+    if (scaleWeight < 10.0)
+    {
+        // Guard: refuse to calibrate if nothing meaningful is on the scale
+        Serial.printf("CalibrateMenu: calibration aborted, scaleWeight=%.2f (place 100g weight first)\n", scaleWeight);
+        DeviceState::setGrinderState(STATUS_IN_MENU);
+        DeviceState::setActiveMenu(MAIN_MENU);
+        return;
+    }
     double newCalibrationValue = value * (scaleWeight / 100.0);
 
     setValue(newCalibrationValue);

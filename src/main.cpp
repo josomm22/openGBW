@@ -14,6 +14,10 @@ void setup()
   // wifi and OTA init
   otaSetup();
 
+  // Load persisted settings from NVS before hardware init reads them.
+  // (Menu constructors run at static-init time before NVS is mounted.)
+  loadAllMenuSettings();
+
   // Display should handle frontend only
   setupDisplay();
 

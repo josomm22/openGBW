@@ -20,5 +20,10 @@ extern ScaleModeMenu &scaleModeMenu; // Handles whether the grinder should run o
 extern SleepMenu &sleepMenu;         // Handles sleep timeout setting
 extern PurgeMenu &purgeMenu;         // Handles purging the grinder
 
+// Load all persisted settings from NVS into menu objects.
+// Must be called after Arduino/ESP-IDF initialisation (i.e. inside setup()),
+// before setupScale() which reads menu values to configure the hardware.
+void loadAllMenuSettings();
+
 // Create all singleton menuPages and begin loop to handle rotaryEncoder I/O
 void setupMenu();

@@ -170,6 +170,35 @@ void rotary_loop(void *p)
     }
 }
 
+void loadAllMenuSettings()
+{
+    Preferences prefs;
+    bool ok = prefs.begin("scale", true); // read-only
+    if (!ok)
+    {
+        Serial.println("loadAllMenuSettings: NVS begin() failed — keeping defaults");
+        return;
+    }
+    double calibration = prefs.getDouble("calibration", (double)LOADCELL_SCALE_FACTOR);
+    double setWeight = prefs.getDouble("setWeight", (double)COFFEE_DOSE_WEIGHT);
+    double offset = prefs.getDouble("offset", (double)COFFEE_DOSE_OFFSET);
+    bool grindMode = prefs.getBool("grindMode", false);
+    bool scaleMode = prefs.getBool("scaleMode", false);
+    long sleepTimeout = prefs.getLong("sleepTimeout", (long)SLEEP_AFTER_MS);
+    prefs.end();
+
+    // setValue() writes back to NVS — harmless and ensures type-correct keys exist.
+    calibrateMenu.setValue(calibration);
+    closedMenu.setValue(setWeight);
+    offsetMenu.setValue(offset);
+    grindModeMenu.setValue(grindMode);
+    scaleModeMenu.setValue(scaleMode);
+    sleepMenu.setValue((double)sleepTimeout);
+
+    Serial.printf("Settings loaded: cal=%.4f setWeight=%.1f offset=%.2f grindMode=%d scaleMode=%d sleep=%ld\n",
+                  calibration, setWeight, offset, (int)grindMode, (int)scaleMode, sleepTimeout);
+}
+
 void setupMenu()
 {
     // 1) setup I/O

@@ -10,7 +10,7 @@
 #define LOADCELL_DOUT_PIN 13
 #define LOADCELL_SCK_PIN 14
 
-#define LOADCELL_SCALE_FACTOR 2223.24
+#define LOADCELL_SCALE_FACTOR 2236.58
 
 #define TARE_MEASURES 5             // use the average of measure for taring (5 × ~100ms = ~500ms, avoids long HX711 monopoly)
 #define SIGNIFICANT_WEIGHT_CHANGE 5 // 5 grams changes are used to detect a significant change
