@@ -272,7 +272,7 @@ void updateDisplay(void *parameter)
 
         u8g2.setFontPosBottom();
         u8g2.setFont(u8g2_font_7x13_tr);
-        snprintf(buf, sizeof(buf), "%3.1fs", startedGrindingAt > 0 ? (double)(millis() - startedGrindingAt) / 1000 : 0);
+        snprintf(buf, sizeof(buf), "%3.1fs", controller.getStartedGrindingAt() > 0 ? (double)(millis() - controller.getStartedGrindingAt()) / 1000 : 0);
         CenterPrintToScreen(buf, 64);
       }
       else if (grinderState == STATUS_EMPTY)
@@ -346,7 +346,7 @@ void updateDisplay(void *parameter)
         u8g2.setFontPosBottom();
         u8g2.setFont(u8g2_font_7x13_tr);
         u8g2.setCursor(64, 64);
-        snprintf(buf, sizeof(buf), "%3.1fs", (double)(finishedGrindingAt - startedGrindingAt) / 1000);
+        snprintf(buf, sizeof(buf), "%3.1fs", (double)(controller.getFinishedGrindingAt() - controller.getStartedGrindingAt()) / 1000);
         CenterPrintToScreen(buf, 64);
       }
       else if (grinderState == STATUS_IN_MENU)

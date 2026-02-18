@@ -6,6 +6,9 @@
 #include "./menu/pages/closed_menu/ClosedMenu.hpp"
 #include "./menu/pages/main_menu/MainMenu.hpp"
 #include "./menu/pages/Menu.hpp"
+#include "grind/GrindController.hpp"
+
+extern GrindController controller;
 
 class MenuItem
 {
@@ -22,8 +25,6 @@ extern unsigned long scaleLastUpdatedAt;
 extern unsigned long lastSignificantWeightChangeAt;
 extern unsigned long lastTareAt;
 extern bool scaleReady;
-extern unsigned long startedGrindingAt;
-extern unsigned long finishedGrindingAt;
 extern double setWeight;
 extern double offset;
 extern bool scaleMode;

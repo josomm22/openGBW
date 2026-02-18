@@ -1,5 +1,6 @@
 #include "scale.hpp"
 #include <MathBuffer.h>
+#include "grind/GrindController.hpp"
 
 HX711 loadcell;
 SimpleKalmanFilter kalmanFilter(2.0, 2.0, 0.5);
@@ -17,16 +18,24 @@ bool scaleMode = false;   // use as regular scale with timer if true
 
 double scaleWeight = 0;     // current weight
 bool grinderActive = false; // needed for continuous mode
-MathBuffer<double, 100> weightHistory;
 unsigned long scaleLastUpdatedAt = 0;
 unsigned long lastSignificantWeightChangeAt = 0;
 unsigned long lastTareAt = 0; // if 0, should tare load cell, else represent when it was last tared
 bool scaleReady = false;
-unsigned long startedGrindingAt = 0;
-unsigned long finishedGrindingAt = 0;
-bool newOffset = false;
 bool lastTriggerButtonPressed = false;
 bool lastScaleMode = false;
+
+// Forward declarations for GrindController callbacks
+void grinderToggle();
+void tareScale();
+
+GrindController controller(
+    []()
+    { grinderToggle(); },
+    []()
+    { tareScale(); },
+    [](double newOff)
+    { offsetMenu.setValue(newOff); });
 
 void tareScale()
 {
@@ -86,7 +95,7 @@ void scaleStatusLoop(void *p)
     }
     lastScaleMode = scaleMode;
 
-    tenSecAvg = weightHistory.averageSince((int64_t)millis() - 10000);
+    tenSecAvg = controller.weightAverageSince((int64_t)millis() - 10000);
 
     // TODO: add GrinderState for sleep
     if (ABS(tenSecAvg - scaleWeight) > SIGNIFICANT_WEIGHT_CHANGE)
@@ -100,8 +109,6 @@ void scaleStatusLoop(void *p)
       if (grinderState != STATUS_IN_MENU && grinderState != STATUS_IN_SUBMENU)
       {
         DeviceState::setGrinderState(STATUS_EMPTY);
-        startedGrindingAt = 0;
-        finishedGrindingAt = 0;
       }
 
       bool shouldRunGrinder = triggerButtonPressed && scaleReady;
@@ -136,110 +143,23 @@ void scaleStatusLoop(void *p)
       continue;
     }
 
+    // Auto-tare when in empty state and scale drifts slightly
     if (grinderState == STATUS_EMPTY)
     {
-      if (triggerButtonEdge && !scaleMode)
-      {
-        Serial.println("Manual grind trigger button pressed");
-        Serial.println("Taring scale before grinding");
-        tareScale();
-        DeviceState::setGrinderState(STATUS_GRINDING_IN_PROGRESS);
-        newOffset = true;
-        startedGrindingAt = millis();
-        grinderToggle();
-        continue;
-      }
-
       if (millis() - lastTareAt > TARE_MIN_INTERVAL && ABS(tenSecAvg) > 0.2 && tenSecAvg < 3 && scaleWeight < 3)
       {
         // tare if: not tared recently, more than 0.2 away from 0, less than 3 grams total (also works for negative weight)
         lastTareAt = 0;
       }
     }
-    else if (grinderState == STATUS_GRINDING_IN_PROGRESS)
+
+    // Advance the grind-by-weight state machine
+    GrinderState newState = controller.update(
+        grinderState, scaleWeight, scaleReady,
+        setWeight, offset, triggerButtonEdge, scaleMode);
+    if (newState != grinderState)
     {
-      // Only check scale readiness after a grace period (1 second) to allow for initialization
-      if (!scaleReady && millis() - startedGrindingAt > 1000)
-      {
-        Serial.println("Failed because scale is not ready");
-        grinderToggle();
-        DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
-        continue;
-      }
-      if (scaleMode && startedGrindingAt == 0 && scaleWeight >= 0.1)
-      {
-        Serial.printf("Started grinding at: %d\n", millis());
-        startedGrindingAt = millis();
-        continue;
-      }
-
-      if (millis() - startedGrindingAt > MAX_GRINDING_TIME && !scaleMode)
-      {
-        Serial.println("Failed because grinding took too long");
-
-        grinderToggle();
-        DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
-        continue;
-      }
-
-      if (
-          millis() - startedGrindingAt > 2000 &&                                  // started grinding at least 2s ago
-          scaleWeight - weightHistory.firstValueOlderThan(millis() - 2000) < 1 && // less than a gram has been grinded in the last 2 second
-          !scaleMode)
-      {
-        Serial.println("Failed because no change in weight was detected");
-
-        grinderToggle();
-        DeviceState::setGrinderState(STATUS_GRINDING_FAILED);
-        continue;
-      }
-
-      double currentOffset = offset;
-      if (scaleMode)
-      {
-        currentOffset = 0;
-      }
-      if (weightHistory.maxSince((int64_t)millis() - 200) >= setWeight + currentOffset)
-      {
-        Serial.println("Finished grinding");
-        finishedGrindingAt = millis();
-
-        grinderToggle();
-        DeviceState::setGrinderState(STATUS_GRINDING_FINISHED);
-        continue;
-      }
-    }
-    else if (grinderState == STATUS_GRINDING_FINISHED)
-    {
-      double currentWeight = weightHistory.averageSince((int64_t)millis() - 500);
-      if (scaleWeight < 5)
-      {
-        Serial.println("Going back to empty");
-        startedGrindingAt = 0;
-        DeviceState::setGrinderState(STATUS_EMPTY);
-        continue;
-      }
-      // Update grind weight offset if necessary
-      else if (currentWeight != setWeight && millis() - finishedGrindingAt > 1500 && newOffset)
-      {
-        // TODO: move this to an offsetMenu function. Something like updateOffsetAfterGrind()
-        offset = offset + setWeight - currentWeight;
-        if (ABS(offset) >= setWeight)
-        {
-          offset = COFFEE_DOSE_OFFSET;
-        }
-        offsetMenu.setValue(offset);
-        newOffset = false;
-      }
-    }
-    else if (grinderState == STATUS_GRINDING_FAILED)
-    {
-      if (scaleWeight >= GRINDING_FAILED_WEIGHT_TO_RESET)
-      {
-        Serial.println("Going back to empty");
-        DeviceState::setGrinderState(STATUS_EMPTY);
-        continue;
-      }
+      DeviceState::setGrinderState(newState);
     }
     delay(50);
   }
@@ -275,7 +195,7 @@ void updateScale(void *parameter)
       }
 
       scaleLastUpdatedAt = millis();
-      weightHistory.push(scaleWeight);
+      controller.pushWeight(scaleWeight);
       scaleReady = true;
       Serial.printf("Scale weight: %.2f g\n", scaleWeight);
     }
