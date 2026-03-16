@@ -6,6 +6,12 @@ constexpr MathBuffer<T,S>::MathBuffer() :
   static_assert(std::is_arithmetic<T>::value, "T must be numeric");
 }
 
+template<typename T, size_t S>
+void MathBuffer<T, S>::reset() {
+  headIndex = 0;
+  count = 0;
+}
+
 template<typename T,size_t S>
 bool MathBuffer<T, S>::push(T value) {
   headIndex += 1;

@@ -11,6 +11,7 @@ public:
 	static constexpr size_t capacity = S;
 
 	bool push(T value);
+	void reset();
 
 	void executeOnSamplesSince(int64_t cutoffMs, std::function<void (T, int64_t)> iterator);
 	size_t countSamplesSince(int64_t cutoffMs);

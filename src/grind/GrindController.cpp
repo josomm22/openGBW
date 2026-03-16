@@ -36,10 +36,14 @@ GrinderState GrindController::update(
             Serial.println("Manual grind trigger button pressed");
             Serial.println("Taring scale before grinding");
             tareFn();
-            delay(800);                   // yield so updateScale task can run the tare (5 measures ~500ms) before starting
-            startedGrindingAt = millis(); // re-sample after delay so timers are accurate
+            weightHistory.reset(); // discard pre-tare readings
+            delay(TARE_WAIT_MS);   // yield so updateScale task can finish tare
+            startedGrindingAt = millis();
             finishedGrindingAt = 0;
-            newOffset = true;
+            grindPhase = GrindPhase::PREDICTIVE;
+            phaseStartAt = millis();
+            pulseAttempts = 0;
+            lastFlowRate = 0.0;
             grinderToggleFn();
             return STATUS_GRINDING_IN_PROGRESS;
         }
@@ -49,34 +53,138 @@ GrinderState GrindController::update(
     // ── STATUS_GRINDING_IN_PROGRESS ───────────────────────────────────────
     if (currentState == STATUS_GRINDING_IN_PROGRESS)
     {
-        // 1. Hard time-out
+        // 1. Hard timeout — grinder may still be running if in PREDICTIVE or PULSE_ACTIVE
         if (!scaleMode && now - startedGrindingAt > MAX_GRINDING_TIME)
         {
             Serial.println("Failed because grinding took too long");
-            grinderToggleFn();
+            if (grindPhase == GrindPhase::PREDICTIVE || grindPhase == GrindPhase::PULSE_ACTIVE)
+            {
+                grinderToggleFn();
+            }
             return STATUS_GRINDING_FAILED;
         }
 
-        // 3. Stall detection: less than 1 g change over the last 4 s
-        //    4 s gives slow or spooling-up grinders time to deliver the first gram.
-        //    ABS guards against a slightly-negative post-tare baseline tripping the check.
+        // 2. Stall detection — only while grinder is running (PREDICTIVE phase)
+        //    After GRIND_STALL_WINDOW_MS with < 1g change → something is wrong.
         if (!scaleMode &&
-            now - startedGrindingAt > 4000 &&
-            ABS(scaleWeight - weightHistory.firstValueOlderThan((int64_t)now - 4000)) < 1)
+            grindPhase == GrindPhase::PREDICTIVE &&
+            now - startedGrindingAt > GRIND_STALL_WINDOW_MS &&
+            ABS(scaleWeight - weightHistory.firstValueOlderThan((int64_t)now - GRIND_STALL_WINDOW_MS)) < 1)
         {
             Serial.println("Failed because no change in weight was detected");
             grinderToggleFn();
             return STATUS_GRINDING_FAILED;
         }
 
-        // 4. Completion check
-        double currentOffset = scaleMode ? 0.0 : offset;
-        if (weightHistory.maxSince((int64_t)now - 200) >= setWeight + currentOffset)
+        // 3. Scale mode: simple threshold, no predictive logic
+        if (scaleMode)
         {
-            Serial.println("Finished grinding");
-            finishedGrindingAt = now;
-            grinderToggleFn();
-            return STATUS_GRINDING_FINISHED;
+            if (weightHistory.maxSince((int64_t)now - 200) >= setWeight)
+            {
+                finishedGrindingAt = now;
+                grinderToggleFn();
+                return STATUS_GRINDING_FINISHED;
+            }
+            return STATUS_GRINDING_IN_PROGRESS;
+        }
+
+        // ── PREDICTIVE phase ──────────────────────────────────────────────
+        if (grindPhase == GrindPhase::PREDICTIVE)
+        {
+            // Need at least GRIND_FLOW_WINDOW_MS of history before computing flow rate.
+            if (now - startedGrindingAt >= (unsigned long)(GRIND_FLOW_WINDOW_MS + 200))
+            {
+                double olderWeight = weightHistory.firstValueOlderThan((int64_t)now - GRIND_FLOW_WINDOW_MS);
+                double flowRate = (scaleWeight - olderWeight) / (GRIND_FLOW_WINDOW_MS / 1000.0);
+                if (flowRate >= GRIND_FLOW_THRESHOLD_GPS)
+                {
+                    lastFlowRate = flowRate;
+                }
+
+                if (lastFlowRate >= GRIND_FLOW_THRESHOLD_GPS)
+                {
+                    double motorLatencyMs = (offset > 0) ? offset : GRIND_MOTOR_LATENCY_MS;
+                    double coastEstimate = (motorLatencyMs / 1000.0) * lastFlowRate;
+                    // Floor: never stop more than 2g below target, even with very high flow
+                    if (coastEstimate > 2.0) coastEstimate = 2.0;
+                    double stopAt = setWeight - coastEstimate;
+
+                    if (scaleWeight >= stopAt)
+                    {
+                        Serial.printf("Predictive stop at %.2fg (flow=%.2fg/s, coast=%.2fg, stopAt=%.2fg)\n",
+                                     scaleWeight, lastFlowRate, coastEstimate, stopAt);
+                        grinderToggleFn();
+                        grindPhase = GrindPhase::SETTLING;
+                        phaseStartAt = now;
+                    }
+                }
+            }
+            return STATUS_GRINDING_IN_PROGRESS;
+        }
+
+        // ── SETTLING / PULSE_SETTLING phase ──────────────────────────────
+        if (grindPhase == GrindPhase::SETTLING || grindPhase == GrindPhase::PULSE_SETTLING)
+        {
+            unsigned long elapsed = now - phaseStartAt;
+            if (elapsed < GRIND_SETTLING_MS)
+            {
+                return STATUS_GRINDING_IN_PROGRESS;
+            }
+            // Scale stable when max-min over the settling window is small.
+            // Allow up to 2× settling time for a noisy reading to calm down.
+            double hi = weightHistory.maxSince((int64_t)now - GRIND_SETTLING_MS);
+            double lo = weightHistory.minSince((int64_t)now - GRIND_SETTLING_MS);
+            if ((hi - lo) > 0.5 && elapsed < GRIND_SETTLING_MS * 2)
+            {
+                return STATUS_GRINDING_IN_PROGRESS;
+            }
+            grindPhase = GrindPhase::PULSE_DECIDE;
+            phaseStartAt = now;
+            return STATUS_GRINDING_IN_PROGRESS;
+        }
+
+        // ── PULSE_DECIDE phase ────────────────────────────────────────────
+        if (grindPhase == GrindPhase::PULSE_DECIDE)
+        {
+            double settledWeight = weightHistory.averageSince((int64_t)now - GRIND_SETTLING_MS);
+            double error = setWeight - settledWeight;
+            Serial.printf("Pulse decide: settled=%.2fg, error=%.2fg, attempts=%d\n",
+                         settledWeight, error, pulseAttempts);
+
+            if (error <= GRIND_PULSE_TOLERANCE_G || pulseAttempts >= GRIND_MAX_PULSE_ATTEMPTS)
+            {
+                Serial.printf("Grinding finished: final=%.2fg after %d pulses\n", settledWeight, pulseAttempts);
+                finishedGrindingAt = now;
+                return STATUS_GRINDING_FINISHED;
+            }
+
+            double flowRate = (lastFlowRate >= GRIND_FLOW_THRESHOLD_GPS)
+                                  ? lastFlowRate
+                                  : GRIND_PULSE_FLOW_FALLBACK_GPS;
+            double motorLatencyMs = (offset > 0) ? offset : GRIND_MOTOR_LATENCY_MS;
+            double pulseDurationMs = motorLatencyMs + (error / flowRate) * 1000.0;
+            if (pulseDurationMs > GRIND_PULSE_MAX_DURATION_MS) pulseDurationMs = GRIND_PULSE_MAX_DURATION_MS;
+            if (pulseDurationMs < GRIND_MOTOR_LATENCY_MS) pulseDurationMs = GRIND_MOTOR_LATENCY_MS;
+
+            Serial.printf("Firing pulse %.0fms (error=%.2fg, flow=%.2fg/s)\n", pulseDurationMs, error, flowRate);
+            grinderToggleFn(); // turn ON
+            pulseAttempts++;
+            pulseEndAt = now + (unsigned long)pulseDurationMs;
+            grindPhase = GrindPhase::PULSE_ACTIVE;
+            phaseStartAt = now;
+            return STATUS_GRINDING_IN_PROGRESS;
+        }
+
+        // ── PULSE_ACTIVE phase ────────────────────────────────────────────
+        if (grindPhase == GrindPhase::PULSE_ACTIVE)
+        {
+            if (now >= pulseEndAt)
+            {
+                grinderToggleFn(); // turn OFF
+                grindPhase = GrindPhase::PULSE_SETTLING;
+                phaseStartAt = now;
+            }
+            return STATUS_GRINDING_IN_PROGRESS;
         }
 
         return STATUS_GRINDING_IN_PROGRESS;
@@ -85,29 +193,12 @@ GrinderState GrindController::update(
     // ── STATUS_GRINDING_FINISHED ──────────────────────────────────────────
     if (currentState == STATUS_GRINDING_FINISHED)
     {
-        // Wait for cup to be removed
         if (scaleWeight < 5.0)
         {
             Serial.println("Going back to empty");
             startedGrindingAt = 0;
             return STATUS_EMPTY;
         }
-
-        // Auto-adjust offset once, 1.5 s after the grinder stopped
-        double currentWeight = weightHistory.averageSince((int64_t)now - 500);
-        if (currentWeight != setWeight &&
-            now - finishedGrindingAt > 1500 &&
-            newOffset)
-        {
-            double newOffsetVal = offset + setWeight - currentWeight;
-            if (ABS(newOffsetVal) >= setWeight)
-            {
-                newOffsetVal = COFFEE_DOSE_OFFSET;
-            }
-            saveOffsetFn(newOffsetVal);
-            newOffset = false;
-        }
-
         return STATUS_GRINDING_FINISHED;
     }
 

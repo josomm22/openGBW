@@ -70,9 +70,9 @@ void showOffsetMenu()
   u8g2.clearBuffer();
   u8g2.setFontPosTop();
   u8g2.setFont(u8g2_font_7x14B_tf);
-  CenterPrintToScreen("Adjust offset", 0);
+  CenterPrintToScreen("Motor latency", 0);
   u8g2.setFont(u8g2_font_7x13_tr);
-  snprintf(buf, sizeof(buf), "%3.2fg", offsetMenu.getValue());
+  snprintf(buf, sizeof(buf), "%.0fms", offsetMenu.getValue());
   CenterPrintToScreen(buf, 28);
   u8g2.sendBuffer();
 }

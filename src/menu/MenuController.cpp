@@ -86,7 +86,7 @@ void rotary_onButtonClick()
             if (resetMenu.getValue())
             {
                 closedMenu.setValue((double)COFFEE_DOSE_WEIGHT);
-                offsetMenu.setValue((double)COFFEE_DOSE_OFFSET);
+                offsetMenu.setValue((double)GRIND_MOTOR_LATENCY_MS);
                 scaleModeMenu.setValue(false);
                 grindModeMenu.setValue(false);
                 calibrateMenu.setValue((double)LOADCELL_SCALE_FACTOR);
@@ -181,7 +181,7 @@ void loadAllMenuSettings()
     }
     double calibration = prefs.getDouble("calibration", (double)LOADCELL_SCALE_FACTOR);
     double setWeight = prefs.getDouble("setWeight", (double)COFFEE_DOSE_WEIGHT);
-    double offset = prefs.getDouble("offset", (double)COFFEE_DOSE_OFFSET);
+    double offset = prefs.getDouble("latency", (double)GRIND_MOTOR_LATENCY_MS);
     bool grindMode = prefs.getBool("grindMode", false);
     bool scaleMode = prefs.getBool("scaleMode", false);
     long sleepTimeout = prefs.getLong("sleepTimeout", (long)SLEEP_AFTER_MS);

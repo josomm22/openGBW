@@ -4,8 +4,8 @@ OffsetMenu::OffsetMenu()
 {
     // NVS is not yet mounted at static-init time. loadAllMenuSettings() will
     // load the persisted value before hardware initialisation.
-    this->value = (double)COFFEE_DOSE_OFFSET;
-    this->name = "Offset Menu";
+    this->value = (double)GRIND_MOTOR_LATENCY_MS;
+    this->name = "Latency Menu";
     this->menuId = OFFSET;
 };
 
@@ -29,7 +29,7 @@ void OffsetMenu::setValue(double newValue)
 {
     this->value = newValue;
     menuPreferences.begin("scale", false);
-    menuPreferences.putDouble("offset", newValue);
+    menuPreferences.putDouble("latency", newValue);
     menuPreferences.end();
     Serial.print("Offset set to: ");
     Serial.println(newValue);
@@ -38,11 +38,9 @@ void OffsetMenu::setValue(double newValue)
 // TODO: remove this or remove the increment function above
 void OffsetMenu::handleEncoderChange(int encoderDelta)
 {
-    double newValue = value + ((float)encoderDelta) / 100;
-    if (abs(newValue) >= 18.0)
-    {
-        newValue = 18.0; // Prevent nonsensical offsets
-    }
+    double newValue = value + ((float)encoderDelta) * 5.0; // 5ms per click
+    if (newValue < 50.0)  newValue = 50.0;
+    if (newValue > 500.0) newValue = 500.0;
     setValue(newValue);
 }
 
