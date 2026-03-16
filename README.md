@@ -47,8 +47,8 @@ The included 3D Models are adapted to the Eureka Mignon XL, but the electronics 
 | white  | A-  | |
 |   | VCC  | VCC/3.3 |
 |   | GND  | GND |
-|   | SCK  | GPIO 18 |
-|   | DT  | GPIO 19|
+|   | SCK  | GPIO 14 |
+|   | DT  | GPIO 13|
 
 #### Display
 
@@ -56,8 +56,8 @@ The included 3D Models are adapted to the Eureka Mignon XL, but the electronics 
 |---|---|
 | VCC | VCC/3.3 |
 | GND | GND |
-| SCL | GPIO 22 |
-| SDA | GPIO 21 |
+| SCL | GPIO 32 |
+| SDA | GPIO 33 |
 
 #### Relay
 
@@ -65,9 +65,16 @@ The included 3D Models are adapted to the Eureka Mignon XL, but the electronics 
 |---|---|---|
 | + | VCC/3.3 | |
 | - | GND | |
-| S | GPIO 33 | |
+| S | GPIO 16 | |
 | Middle Screw Terminal | | push button |
 | NO Screw Terminal | | push button |
+
+#### Grind Trigger Button
+
+| Button | ESP32 |
+|---|---|
+| Pin 1 | GND |
+| Pin 2 | GPIO 22 |
 
 #### Rotary Encoder
 
@@ -75,9 +82,9 @@ The included 3D Models are adapted to the Eureka Mignon XL, but the electronics 
 |---|---|
 | VCC/+ | VCC/3.3 |
 | GND | GND |
-| SW | GPIO 34 |
-| DT | GPIO 23 |
-| CLK | GPIO 32 |
+| SW | GPIO 17 |
+| DT | GPIO 4 |
+| CLK | GPIO 2 |
 
 -----------
 
